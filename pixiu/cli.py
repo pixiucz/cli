@@ -1,10 +1,69 @@
 import click
 import toml
 import sys
+import os
+import pkg_resources
 
 
-VERSION = '0.1.0'
-CONFIG = 'pixiu.toml'
+VERSION = pkg_resources.require('pixiu-cli')[0].version # version from setup.py
+CONFIG = 'pixiu.toml' # projects config filename
+TEMP_DIR = 'pixiu-cli-temp' # temporary fir for updating CLI
+def BOOTSTRAP(platform):
+    """ Config init template """
+    import datetime
+
+    return {
+        'project': {
+            'initialized': datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'platform': platform,
+            'name': os.getcwd().split(os.sep)[-1]
+        },
+        'database': {
+            'localhost': {
+                'engine': 'sqlite'
+            }
+        },
+        'deployment': {
+            'test_localhost': {
+                'database': 'database.localhost'
+            }
+        }
+    }
+def REPO():
+    """ 
+    Url from setup.py 
+    Implementation from http://stackoverflow.com/a/38659619 
+    """
+    d = pkg_resources.get_distribution('pixiu-cli')
+    metadata = d._get_metadata(d.PKG_INFO)
+    home_page = [m for m in metadata if m.startswith('Home-page:')]
+    return home_page[0].split(':', 1)[1].strip()
+
+
+# helper functions
+def error(msg):
+    click.echo(click.style(msg, bg='red', fg='white'))
+    sys.exit(-1)
+
+
+class Updater():
+    """ Self updater """
+
+    def __init__(self):    
+        self.version = VERSION
+
+
+    def update(self):
+        import subprocess
+        import shutil
+
+        if (0 != subprocess.call(['git', 'clone', REPO(), TEMP_DIR])):
+            raise Exception('Failed to clone')
+
+        if (0 != subprocess.call(['pipsi', 'upgrade', TEMP_DIR])):
+            raise Exception('Failed to upgrade package with pipsi')
+
+        shutil.rmtree(TEMP_DIR)
 
 
 class Config():
@@ -12,26 +71,36 @@ class Config():
 
     def __init__(self):
         self.config = None
-        self.refresh(False)
+        self.sync(False)
 
 
-    def refresh(self, required=True):
+    def sync(self, required=True):
         try:
-            with open(CONFIG) as config_file:
-                self.config = toml.loads(config_file.read())
+            # write sync
+            if (self.config): 
+                with open(CONFIG, 'w') as config_file:
+                    config_file.write(toml.dumps(self.config))
+            # read sync
+            else: 
+                with open(CONFIG) as config_file:
+                    self.config = toml.loads(config_file.read())
 
         except ValueError as e:
-            click.echo('Configuration file error: {0}'.format(e))
-            sys.exit(-1)
+            error('Configuration file error: {0}'.format(e))            
 
         except IOError:
             if (required):
-                click.echo('No configuration file. Did you forget to run \'--init\' ?')
-                sys.exit(-1)
+                error('No configuration file. Did you forget to run \'--init\' ?')
+
+
+    def bootstrap(self, platform):
+        self.config = BOOTSTRAP(platform)
+
 
     @property
     def environments(self):
-        return [env for env in self.config['deployment']]
+        return [env for env in self.config['deployment']] if self.config else []
+
 
     @property
     def name(self):
@@ -49,17 +118,25 @@ config = Config()
 @click.option('--version', '-e', is_flag=True, help='Show CLI version.')
 def main(init, install, deploy, info, update, version):
     if (version):
-        click.echo('Pixiu CLI v {0}'.format(VERSION))
+        click.echo('Pixiu CLI v{0}'.format(VERSION))
+
     elif (update):
-        click.echo('Updating CLI...')
+        click.echo('Updating CLI (current v{0})...'.format(VERSION))
+        updater = Updater()
+        try:
+            updater.update()
+        except Exception as e:
+            error('Failed to update: {0}'.format(e))
+
     else:
         if (init):
             click.echo('Initializing \'{0}\' project...'.format(init))
-
-        config.refresh()
+            config.bootstrap(init)
+            config.sync()        
 
         if (install):            
             click.echo('Installing \'{0}\'...'.format(config.name))
 
         if (not init and deploy):
             click.echo('Deploying \'{0}\' to \'{1}\'...'.format(config.name, deploy))
+            config.sync()

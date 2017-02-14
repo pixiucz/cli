@@ -5,11 +5,9 @@ from setuptools import find_packages, setup
 
 dependencies = ['click', 'toml']
 
-version = '0.1.0'
-
 setup(
     name='pixiu-cli',
-    version=version,
+    version='0.1.0',
     url='https://github.com/pixiucz/cli',
     license='MIT',
     author='Tomas Ondrus',
