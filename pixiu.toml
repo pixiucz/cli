@@ -1,0 +1,12 @@
+[project]
+name = "maratek"
+initialized = "2017-02-14"
+
+[database]
+
+[deployment]
+	[deployment.production_aws]
+	uri = "elasticbeans.com"
+
+	[deployment.test_aws]
+	uri = "test.elasticbeans.com"

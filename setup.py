@@ -3,11 +3,13 @@ A company CLI for dependency managment and deployment.
 """
 from setuptools import find_packages, setup
 
-dependencies = ['click']
+dependencies = ['click', 'toml']
+
+version = '0.1.0'
 
 setup(
     name='pixiu-cli',
-    version='0.1.0',
+    version=version,
     url='https://github.com/pixiucz/cli',
     license='MIT',
     author='Tomas Ondrus',
