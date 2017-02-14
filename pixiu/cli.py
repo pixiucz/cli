@@ -45,6 +45,9 @@ def error(msg):
     click.echo(click.style(msg, bg='red', fg='white'))
     sys.exit(-1)
 
+def success(msg):
+    click.echo(click.style(msg, bg='green', fg='white'))
+
 
 class Updater():
     """ Self updater """
@@ -60,8 +63,13 @@ class Updater():
         if (0 != subprocess.call(['git', 'clone', REPO(), TEMP_DIR])):
             raise Exception('Failed to clone')
 
-        if (0 != subprocess.call(['pipsi', 'upgrade', TEMP_DIR])):
+        os.chdir(TEMP_DIR)
+
+        if (1 != subprocess.call(['pipsi', 'upgrade', '.'])):
             raise Exception('Failed to upgrade package with pipsi')
+
+        self.version = subprocess.check_output(['git', 'describe', '--abbrev=0', '--tags']).decode('utf-8')[:-1]
+        os.chdir('..')
 
         shutil.rmtree(TEMP_DIR)
 
@@ -125,6 +133,7 @@ def main(init, install, deploy, info, update, version):
         updater = Updater()
         try:
             updater.update()
+            success('Pixiu CLI updated to version {0}.'.format(updater.version))
         except Exception as e:
             error('Failed to update: {0}'.format(e))
 
